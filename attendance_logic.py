@@ -1,3 +1,4 @@
+import csv
 import datetime
 
 # Change this to adjust the late arrival cutoff time
@@ -24,3 +25,16 @@ def build_csv_header() -> list:
     shared CSV_HEADER constant.
     """
     return list(CSV_HEADER)
+
+
+def append_log_row(log_file: str, name: str, timestamp: str, photo_path: str, status: str) -> list:
+    """Append a single 4-column attendance row to ``log_file`` and return it.
+
+    Uses :func:`build_csv_row` so the column order is single-sourced. Opening in
+    append mode keeps any pre-existing 3-column log intact — no header rewrite or
+    migration — so this stays backward-compatible with older logs.
+    """
+    row = build_csv_row(name, timestamp, photo_path, status)
+    with open(log_file, "a", newline="") as f:
+        csv.writer(f).writerow(row)
+    return row
