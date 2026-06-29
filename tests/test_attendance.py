@@ -1,6 +1,12 @@
 import datetime
 import pytest
-from attendance_logic import LATE_CUTOFF, get_attendance_status, build_csv_row
+from attendance_logic import (
+    LATE_CUTOFF,
+    CSV_HEADER,
+    get_attendance_status,
+    build_csv_row,
+    build_csv_header,
+)
 
 
 def test_late_cutoff_is_9am():
@@ -46,3 +52,20 @@ def test_build_csv_row_on_time():
 def test_build_csv_row_has_four_columns():
     row = build_csv_row("Test Student", "2026-01-01 09:00:00", "photos/test.jpg", "On Time")
     assert len(row) == 4
+
+
+def test_csv_header_columns():
+    assert build_csv_header() == ["Name", "Timestamp", "Photo", "Status"]
+
+
+def test_csv_header_matches_row_width():
+    header = build_csv_header()
+    row = build_csv_row("Test Student", "2026-01-01 09:00:00", "photos/test.jpg", "On Time")
+    assert len(header) == len(row)
+
+
+def test_csv_header_constant_returns_a_copy():
+    # Mutating a returned header must not corrupt the shared constant.
+    build_csv_header().append("Tampered")
+    assert build_csv_header() == ["Name", "Timestamp", "Photo", "Status"]
+    assert CSV_HEADER == ["Name", "Timestamp", "Photo", "Status"]
