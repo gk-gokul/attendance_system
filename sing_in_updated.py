@@ -1,15 +1,19 @@
 import sys
 import cv2
 import os
-import csv
 from datetime import datetime
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QLabel, QListWidget,
     QPushButton, QLineEdit, QListWidgetItem, QHBoxLayout, QInputDialog, QFrame
 )
 from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve
-from PyQt6.QtGui import QImage, QPixmap, QKeyEvent
+from PyQt6.QtGui import QImage, QPixmap, QKeyEvent, QColor
 from PyQt6.QtWidgets import QGraphicsOpacityEffect
+
+import attendance_logic
+# Single source of truth for the late cutoff — adjust it in attendance_logic.py.
+# Re-exported here only for discoverability; do NOT fork the value.
+from attendance_logic import LATE_CUTOFF, get_attendance_status
 
 # Load and format student names
 STUDENT_FILE = "students.txt"
@@ -201,8 +205,9 @@ class AttendanceApp(QWidget):
         if not name or name in self.checked_in_names:
             return
 
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        filename_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+        checkin_dt = datetime.now()
+        timestamp = checkin_dt.strftime("%Y-%m-%d %H:%M:%S")
+        filename_time = checkin_dt.strftime("%Y%m%d_%H%M%S")
 
         person_dir = os.path.join(PHOTO_DIR, name.replace(' ', '_'))
         os.makedirs(person_dir, exist_ok=True)
@@ -212,13 +217,18 @@ class AttendanceApp(QWidget):
         if ret:
             cv2.imwrite(photo_filename, frame)
 
-        with open(LOG_FILE, "a", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow([name, timestamp, photo_filename])
+        # Compute on-time/late status from the check-in time using the single
+        # shared cutoff, then record a 4-column row (status as the 4th column).
+        status = get_attendance_status(checkin_dt)
+        attendance_logic.append_log_row(LOG_FILE, name, timestamp, photo_filename, status)
 
         self.checked_in_names.add(name)
         self.left_list.clear()
-        self.right_list.addItem(name)
+        # The same status string drives the list colour: late students appear orange.
+        item = QListWidgetItem(name)
+        if status == "Late":
+            item.setForeground(QColor("orange"))
+        self.right_list.addItem(item)
         self.filter_names(self.search.text())
 
         self.show_notification(f"{name}, you have checked in at {timestamp}.")
